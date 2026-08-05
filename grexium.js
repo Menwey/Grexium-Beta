@@ -1782,7 +1782,7 @@
                 setStatus('\u26a0 Could not reach server — saved locally only', '#f0a500');
             }
         } else {
-            setStatus('\u2713 Applied locally (configure GREXIUM_WORKER_URL to share)', '#00e87a');
+            setStatus('\u2713 Applied locally', '#00e87a');
             notify('Banner applied!', 'success');
         }
 
