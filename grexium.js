@@ -649,15 +649,10 @@
             let glassEl = document.getElementById('pks-profile-glass-style');
             if (!glassEl) { glassEl = document.createElement('style'); glassEl.id = 'pks-profile-glass-style'; document.head.appendChild(glassEl); }
             glassEl.textContent = `
-                /* Scope glass effect strictly to profile page cards — never sidebar nav cards */
-                [class*="profilePage"] .card,
-                [class*="profilePage"] [class*="card-0-2-"],
-                [class*="profilePage"] .card-body,
-                [class*="profilePage"] [class*="cardBody-0-2-"],
-                [class*="userContainer"] .card,
-                [class*="userContainer"] [class*="card-0-2-"],
-                [class*="userContainer"] .card-body,
-                [class*="userContainer"] [class*="cardBody-0-2-"],
+                .card,
+                [class*="card-0-2-"],
+                .card-body,
+                [class*="cardBody-0-2-"],
                 .avatarImageCard-0-2-334,
                 .groupCard-0-2-402 {
                     background: rgba(255,255,255,0.05) !important;
@@ -667,15 +662,16 @@
                     border-radius: 12px !important;
                     box-shadow: 0 8px 32px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.15) !important;
                 }
-                /* Sidebar nav card — never gets glass, always stays fully opaque */
+                /* Sidebar nav card — strip glass so backdrop-filter doesn't break its stacking context */
                 [class*="card-0-2-"]:has(a[href="/home"]),
                 [class*="card-0-2-"]:has(a[href="/groups"]),
-                [class*="card-0-2-"]:has(a[href*="/friends"]) {
-                    background: revert !important;
+                [class*="card-0-2-"]:has(a[href*="/friends"]),
+                [class*="card-0-2-"]:has([class*="link-0-2-"]) {
+                    background: unset !important;
                     backdrop-filter: none !important;
                     -webkit-backdrop-filter: none !important;
-                    border: revert !important;
-                    box-shadow: revert !important;
+                    border: unset !important;
+                    box-shadow: unset !important;
                 }
                 .avatarWrapper-0-2-191,
                 .avatarContainer-0-2-189,
