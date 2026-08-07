@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GrexiumL
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Grexium Suite — Trading, Mass Trader
 // @author       @Menwx
 // @homepage     https://github.com/Menwey/Grexium-Beta 
