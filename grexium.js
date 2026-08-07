@@ -2,9 +2,9 @@
 // @name         GrexiumL
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Grexium Suite — Trading, Mass Trader, Config System (Free)
+// @description  Grexium Suite — Trading, Mass Trader
 // @author       @Menwx
-// @homepage     https://github.com/Menwey/hexium-crack
+// @homepage     https://github.com/Menwey/Grexium-Beta 
 // @match        https://www.pekora.zip/*
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -649,10 +649,15 @@
             let glassEl = document.getElementById('pks-profile-glass-style');
             if (!glassEl) { glassEl = document.createElement('style'); glassEl.id = 'pks-profile-glass-style'; document.head.appendChild(glassEl); }
             glassEl.textContent = `
-                .card,
-                [class*="card-0-2-"],
-                .card-body,
-                [class*="cardBody-0-2-"],
+                /* Scope glass effect strictly to profile page cards — never sidebar nav cards */
+                [class*="profilePage"] .card,
+                [class*="profilePage"] [class*="card-0-2-"],
+                [class*="profilePage"] .card-body,
+                [class*="profilePage"] [class*="cardBody-0-2-"],
+                [class*="userContainer"] .card,
+                [class*="userContainer"] [class*="card-0-2-"],
+                [class*="userContainer"] .card-body,
+                [class*="userContainer"] [class*="cardBody-0-2-"],
                 .avatarImageCard-0-2-334,
                 .groupCard-0-2-402 {
                     background: rgba(255,255,255,0.05) !important;
@@ -661,6 +666,16 @@
                     border: 1px solid rgba(255,255,255,0.15) !important;
                     border-radius: 12px !important;
                     box-shadow: 0 8px 32px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.15) !important;
+                }
+                /* Sidebar nav card — never gets glass, always stays fully opaque */
+                [class*="card-0-2-"]:has(a[href="/home"]),
+                [class*="card-0-2-"]:has(a[href="/groups"]),
+                [class*="card-0-2-"]:has(a[href*="/friends"]) {
+                    background: revert !important;
+                    backdrop-filter: none !important;
+                    -webkit-backdrop-filter: none !important;
+                    border: revert !important;
+                    box-shadow: revert !important;
                 }
                 .avatarWrapper-0-2-191,
                 .avatarContainer-0-2-189,
@@ -676,9 +691,6 @@
                     backdrop-filter: blur(12px) !important;
                     -webkit-backdrop-filter: blur(12px) !important;
                 }
-                /* backdrop-filter makes each card its own stacking context, which
-                   buries the Past Usernames popover under the next glass frame.
-                   Lift the hovered card so its popover paints above its siblings. */
                 .card:hover,
                 [class*="card-0-2-"]:hover:not([class*="dropdown"]),
                 [class*="cardBody-0-2-"]:hover {
@@ -1782,7 +1794,7 @@
                 setStatus('\u26a0 Could not reach server — saved locally only', '#f0a500');
             }
         } else {
-            setStatus('\u2713 Applied locally', '#00e87a');
+            setStatus('\u2713 Applied locally (configure GREXIUM_WORKER_URL to share)', '#00e87a');
             notify('Banner applied!', 'success');
         }
 
@@ -2042,13 +2054,63 @@
                     <div class="pks-tw-robux-input">${COIN(17)}<input id="pks-tw-their-robux" type="number" min="0" placeholder="Plus Robux amount"></div>
                     <div class="pks-tw-total"><span class="pks-tw-total-lbl">Total Value:</span><span id="pks-tw-their-total" class="pks-tw-total-val">${COIN(17)}0</span></div>
                     ${tradeSessionId ? `<div style="background:rgba(240,165,0,0.1);border:1px solid rgba(240,165,0,0.25);color:#f0a500;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;margin-top:16px;text-align:center;">Countering Trade #${tradeSessionId}</div>` : ''}
-                    <button id="pks-tw-send-btn" class="pks-tw-make">${tradeSessionId ? 'Send Counter' : 'Make Offer'}</button>
+                    <!-- Value display toggle -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;margin-bottom:4px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#9a9a9a;user-select:none;">
+                            <input type="checkbox" id="pks-tw-show-val" checked
+                                style="width:34px;height:18px;appearance:none;background:#444;border-radius:9px;position:relative;cursor:pointer;transition:background .15s;flex:none;">
+                            <span>Show Value/RAP</span>
+                        </label>
+                        <div style="display:flex;gap:4px;">
+                            <button id="pks-tw-metric-val" style="all:unset;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:#3fcf6a22;color:#3fcf6a;border:1px solid #3fcf6a44;">Value</button>
+                            <button id="pks-tw-metric-rap" style="all:unset;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#555;border:1px solid #333;">RAP</button>
+                        </div>
+                    </div>
+                    <style>
+                        #pks-tw-show-val::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .15s;}
+                        #pks-tw-show-val:checked{background:#3fcf6a;}
+                        #pks-tw-show-val:checked::after{left:18px;}
+                    </style>
+                    <button id="pks-tw-send-btn" class="pks-tw-make" style="margin-top:14px;">${tradeSessionId ? 'Send Counter' : 'Make Offer'}</button>
                     <div id="pks-tw-status" style="text-align:center;font-size:13px;margin-top:12px;min-height:16px;color:#888;"></div>
                 </div>
             </div>
         </div>`;
 
         document.body.appendChild(root);
+
+        // ── Value/RAP toggle and metric switcher ─────────────────────────────
+        let twShowVal = true;
+        let twMetric = 'value'; // 'value' | 'rap'
+
+        const twApplyValToggle = () => {
+            const pillsEl = document.getElementById('pks-tw-pills');
+            const divEl   = document.getElementById('pks-tw-divider-line');
+            if (!pillsEl) return;
+            if (twShowVal && (pillsEl.innerHTML !== '')) {
+                pillsEl.style.display = '';
+                if (divEl) divEl.style.display = 'none';
+            } else {
+                pillsEl.style.display = 'none';
+                if (divEl) divEl.style.display = '';
+            }
+        };
+
+        const twSetMetric = (m) => {
+            twMetric = m;
+            const vBtn = document.getElementById('pks-tw-metric-val');
+            const rBtn = document.getElementById('pks-tw-metric-rap');
+            if (vBtn) { vBtn.style.background = m === 'value' ? '#3fcf6a22' : 'transparent'; vBtn.style.color = m === 'value' ? '#3fcf6a' : '#555'; vBtn.style.borderColor = m === 'value' ? '#3fcf6a44' : '#333'; }
+            if (rBtn) { rBtn.style.background = m === 'rap' ? '#38bdf822' : 'transparent'; rBtn.style.color = m === 'rap' ? '#38bdf8' : '#555'; rBtn.style.borderColor = m === 'rap' ? '#38bdf844' : '#333'; }
+            updateTotals();
+        };
+
+        document.getElementById('pks-tw-show-val')?.addEventListener('change', (e) => {
+            twShowVal = e.target.checked;
+            twApplyValToggle();
+        });
+        document.getElementById('pks-tw-metric-val')?.addEventListener('click', () => twSetMetric('value'));
+        document.getElementById('pks-tw-metric-rap')?.addEventListener('click', () => twSetMetric('rap'));
 
         const getEffVal = (item) => getKolVal(item.assetId) || item.recentAveragePrice || 0;
         const getEffRap = (item) => getKolRap(item.assetId) || item.recentAveragePrice || 0;
@@ -2088,9 +2150,14 @@
             const dividerEl = document.getElementById('pks-tw-divider-line');
             if (pillsEl) {
                 const has = twMySelected.length || twTheirSelected.length || myRobux || theirRobux;
-                if (has) {
-                    pillsEl.innerHTML = twPill('RAP', myItemsRap + myAfterFee, theirItemsRap + theirRobux)
-                        + twPill('Value', myItemsVal + myAfterFee, theirItemsVal + theirRobux);
+                if (has && twShowVal) {
+                    // show the metric the user picked
+                    if (twMetric === 'rap') {
+                        pillsEl.innerHTML = twPill('RAP', myItemsRap + myAfterFee, theirItemsRap + theirRobux);
+                    } else {
+                        pillsEl.innerHTML = twPill('RAP', myItemsRap + myAfterFee, theirItemsRap + theirRobux)
+                            + twPill('Value', myItemsVal + myAfterFee, theirItemsVal + theirRobux);
+                    }
                     pillsEl.style.display = '';
                     if (dividerEl) dividerEl.style.display = 'none';
                 } else {
@@ -2311,6 +2378,37 @@
         let css = '';
         css += `img[src*="headshot"],img[src*="thumbnail"]{background-color:transparent!important;}[class*="avatarHeadshotContainer"],[class*="avatarContainer"],[class*="avatarWrapper"],[class*="userIconContainer"],[class*="userIcon"]{background-color:transparent!important;}`;
         css += `[class*="iconCard"],[class*="iconCard"] [class*="imageWrapper"]{background:transparent!important;background-color:transparent!important;border:none!important;box-shadow:none!important;}`;
+
+        /* ── Empty-state sections ("No games found." / "User has no favourited games.") ── */
+        css += `
+            .section-content-off,
+            [class*="noGames"],
+            [class*="section-content-off"] {
+                background:rgba(255,255,255,0.03)!important;
+                border:1px solid rgba(255,255,255,0.07)!important;
+                border-radius:12px!important;
+                color:rgba(255,255,255,0.25)!important;
+                font-family:var(--pks-font),'Share Tech Mono',monospace!important;
+                font-size:12px!important;
+                letter-spacing:0.06em!important;
+                text-align:center!important;
+                padding:32px 16px!important;
+                min-height:60px!important;
+                display:flex!important;
+                align-items:center!important;
+                justify-content:center!important;
+            }
+            /* Section headers (Recently Played, My Favorites etc.) */
+            [class*="containerHeader"] h3 {
+                color:rgba(255,255,255,0.75)!important;
+                font-size:16px!important;
+                font-weight:700!important;
+            }
+            /* Wrapper around each game sort section */
+            [class*="sortContainer"] {
+                margin-bottom:16px!important;
+            }
+        `;
 
         css += `
             [class*="moneyContainer"]{overflow:visible!important;}
@@ -2551,7 +2649,8 @@
                 theirRap: sum(theirOffer.userAssets, rapOf) + theirRobux,
             };
         };
-        const tradeMetric = () => (cfg.tradesMetric === 'rap' ? 'rap' : 'value');
+        let trOverlayMetric = 'value'; // controlled by RAP/Value buttons in the overlay
+        const tradeMetric = () => trOverlayMetric || (cfg.tradesMetric === 'rap' ? 'rap' : 'value');
         const gainPill = (label, mine, theirs) => {
             const diff = theirs - mine;
             const pct  = mine > 0 ? Math.round((diff / mine) * 100) : (theirs > 0 ? 100 : 0);
@@ -2662,7 +2761,13 @@
                         </select>
                     </div>
                     <a class="pks-tr-help" href="https://pekora.zip/help" target="_blank" rel="noopener">How do I trade?</a>
-                    <label class="pks-tr-dispval-toggle"><input type="checkbox" id="pks-tr-dispval" checked><span>Display Value</span></label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <label class="pks-tr-dispval-toggle" style="margin-bottom:0;"><input type="checkbox" id="pks-tr-dispval" checked><span>Display Value</span></label>
+                        <div style="display:flex;gap:4px;">
+                            <button id="pks-tr-metric-val" style="all:unset;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;background:#3fcf6a22;color:#3fcf6a;border:1px solid #3fcf6a44;">Value</button>
+                            <button id="pks-tr-metric-rap" style="all:unset;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#555;border:1px solid #333;">RAP</button>
+                        </div>
+                    </div>
                     <div class="pks-tr-list" id="pks-tr-list"><div class="pks-tr-empty">Loading\u2026</div></div>
                 </div>
                 <div id="pks-tr-detail"><div class="pks-tr-empty">Select a trade to view details.</div></div>
@@ -2874,6 +2979,19 @@
         typeEl.addEventListener('change', () => loadList(typeEl.value));
 
         const dispValEl = overlay.querySelector('#pks-tr-dispval');
+        const setTradeMetric = (m) => {
+            trOverlayMetric = m;
+            const vBtn = overlay.querySelector('#pks-tr-metric-val');
+            const rBtn = overlay.querySelector('#pks-tr-metric-rap');
+            if (vBtn) { vBtn.style.background = m === 'value' ? '#3fcf6a22' : 'transparent'; vBtn.style.color = m === 'value' ? '#3fcf6a' : '#555'; vBtn.style.borderColor = m === 'value' ? '#3fcf6a44' : '#333'; }
+            if (rBtn) { rBtn.style.background = m === 'rap' ? '#38bdf822' : 'transparent'; rBtn.style.color = m === 'rap' ? '#38bdf8' : '#555'; rBtn.style.borderColor = m === 'rap' ? '#38bdf844' : '#333'; }
+            // repaint all row indicators with new metric
+            if (_tradesRepaint) _tradesRepaint();
+        };
+
+        overlay.querySelector('#pks-tr-metric-val')?.addEventListener('click', () => setTradeMetric('value'));
+        overlay.querySelector('#pks-tr-metric-rap')?.addEventListener('click', () => setTradeMetric('rap'));
+
         const applyDispVal = () => {
             const on = dispValEl.checked;
             overlay.querySelectorAll('.pks-tr-ind').forEach(el => el.style.visibility = on ? '' : 'hidden');
@@ -4508,6 +4626,22 @@
         _bulkObserver.observe(document.body, { childList: true, subtree: true });
     };
 
+    const applyEmptySectionStyles = () => {
+        document.querySelectorAll('.section-content-off,[class*="noGames"]').forEach(el => {
+            el.style.setProperty('display', 'flex', 'important');
+            el.style.setProperty('align-items', 'center', 'important');
+            el.style.setProperty('justify-content', 'center', 'important');
+            el.style.setProperty('background', 'rgba(255,255,255,0.03)', 'important');
+            el.style.setProperty('border', '1px solid rgba(255,255,255,0.07)', 'important');
+            el.style.setProperty('border-radius', '12px', 'important');
+            el.style.setProperty('color', 'rgba(255,255,255,0.25)', 'important');
+            el.style.setProperty('padding', '32px 16px', 'important');
+            el.style.setProperty('min-height', '60px', 'important');
+            el.style.setProperty('font-size', '12px', 'important');
+            el.style.setProperty('text-align', 'center', 'important');
+        });
+    };
+
     const applyAgeOverride = () => {
         document.querySelectorAll('[class*="ageSpan-"]').forEach(el => {
             if (el.textContent !== '13+') el.textContent = '13+';
@@ -4563,6 +4697,7 @@
                 if (cfg.sidebarEnabled) applySidebarDirect();
                 injectSidebarLinks();
                 applyAgeOverride();
+                applyEmptySectionStyles();
                 ensureTradesOverlay();
                 removeNagAlerts();
                 injectProfileTradeButton();
@@ -4573,6 +4708,7 @@
         });
         state.dom.observer.observe(document.body, { childList:true, subtree:true });
         applyAgeOverride();
+        applyEmptySectionStyles();
         removeNagAlerts();
         injectProfileTradeButton();
         applyAvatarControls();
@@ -4613,6 +4749,7 @@
                 injectFriendsButtons();
                 applyBadges();
                 applyProfileBannerForPage();
+                initCollectibles();
                 if (!isTradeWindow() && cfg.effectType !== 'none' && !document.getElementById('pks-effects-canvas')) applyEffects();
             }, 400);
         };
@@ -4687,8 +4824,270 @@
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     };
 
+    // ── Collectibles page (/internal/collectibles) ────────────────────────────
+    const initCollectibles = () => {
+        if (!location.href.includes('/internal/collectibles')) return;
+        const userId = new URLSearchParams(location.search).get('userId');
+        if (!userId) return;
+
+        // Redirect away from paginated pages
+        const pi = new URLSearchParams(location.search).get('pageIndex');
+        if (pi && pi !== '0') { location.href = `/internal/collectibles?userId=${userId}`; return; }
+
+        const ROLIMONS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1094 1466.2" style="width:15px;height:15px;flex-shrink:0;vertical-align:middle;"><path fill="#0084dd" d="M1094 521.6 0 0v469.5l141-67.4 250 119.2L0 707.8v369.7l815.6 388.7L315 893l779-371.4z"></path></svg>`;
+
+        // Inject styles
+        if (!document.getElementById('grx-col-style')) {
+            const st = document.createElement('style');
+            st.id = 'grx-col-style';
+            st.textContent = `
+                #grx-col-bar{display:flex;align-items:center;justify-content:flex-end;gap:6px;width:100%;margin-bottom:10px;flex-wrap:wrap;}
+                #grx-col-bar button{background:transparent;color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;white-space:nowrap;}
+                #grx-col-bar button:hover{border-color:rgba(255,255,255,0.35);color:#fff;}
+                #grx-col-bar button.grx-active{border-color:#3fcf6a;color:#3fcf6a;}
+                .grx-value{color:#0084dd;font-weight:700;margin-top:4px;font-size:13px;display:flex;align-items:center;gap:4px;}
+                #grx-col-total-value{color:#0084dd;font-weight:700;margin-top:6px;font-size:14px;}
+                .grx-dupe-badge{position:absolute;top:5px;right:5px;background:#2a2a2a;color:rgba(255,255,255,0.75);font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;border:1px solid rgba(255,255,255,0.12);pointer-events:none;z-index:10;}
+                .grx-serial-btn{display:block;margin:5px auto 0;background:transparent;color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.12);border-radius:5px;font-size:10px;font-weight:600;padding:2px 8px;cursor:pointer;white-space:nowrap;width:100%;}
+                .grx-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;}
+                .grx-modal{width:min(440px,95vw);max-height:70vh;overflow:auto;background:#181818;color:#fff;border:1px solid #3a3a3a;border-radius:12px;padding:16px;}
+                .grx-modal-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333;padding-bottom:10px;margin-bottom:10px;font-weight:700;font-size:14px;}
+                .grx-modal-close{background:#242c36;color:#fff;border:1px solid #4a5666;border-radius:7px;padding:5px 10px;cursor:pointer;}
+                .grx-modal-list{display:grid;gap:5px;}
+                .grx-modal-row{background:#111;border:1px solid #333;border-radius:7px;padding:7px 10px;font-size:12px;}
+            `;
+            document.head.appendChild(st);
+        }
+
+        const getVal = (assetId) => getKolVal(assetId) || 0;
+
+        const extractSerial = (name) => {
+            if (!name) return Infinity;
+            const m = name.match(/#\s*(\d+)/);
+            if (m) return parseInt(m[1], 10);
+            const tokens = (name.match(/\b(\d+)\b/g) || []).map(Number).filter(n => n > 0 && n < 100000 && !(n >= 1900 && n <= 2100));
+            return tokens.length ? Math.min(...tokens) : Infinity;
+        };
+
+        let stackedMode = false;
+
+        const processCards = () => {
+            let totalValue = 0;
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row) return;
+
+            document.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2').forEach(card => {
+                const link = card.querySelector('a');
+                if (!link) return;
+                const m = link.href.match(/catalog\/(\d+)\//);
+                if (!m) return;
+                const assetId = m[1];
+                const rap = (() => {
+                    const p = card.querySelector('.card-body p:nth-of-type(2)');
+                    if (!p) return 0;
+                    const match = p.textContent.match(/RAP:\s*([\d,]+)/i);
+                    return match ? parseInt(match[1].replace(/,/g, ''), 10) : 0;
+                })();
+                const val = getVal(parseInt(assetId)) || rap;
+                totalValue += val;
+
+                // Set data attrs for sorting
+                const nameEl = card.querySelector('.card-body p.fw-bolder') || card.querySelector('.card-body p');
+                card.dataset.value = val;
+                card.dataset.rap = rap;
+                card.dataset.name = nameEl ? nameEl.textContent.trim() : '';
+                card.dataset.serial = extractSerial(card.dataset.name);
+                card.dataset.assetId = assetId;
+
+                // Inject value line
+                if (!card.querySelector('.grx-value')) {
+                    const p = document.createElement('p');
+                    p.className = 'grx-value mb-0';
+                    p.innerHTML = `${ROLIMONS_SVG}<span>Value: ${val.toLocaleString()}</span>`;
+                    const body = card.querySelector('.card-body') || card;
+                    body.appendChild(p);
+                }
+            });
+
+            // Total value in sidebar
+            const rapEl = [...document.querySelectorAll('.fw-bolder')].find(el => /Total RAP/i.test(el.textContent));
+            if (rapEl) {
+                let valEl = document.getElementById('grx-col-total-value');
+                if (!valEl) {
+                    valEl = document.createElement('p');
+                    valEl.id = 'grx-col-total-value';
+                    rapEl.insertAdjacentElement('afterend', valEl);
+                }
+                valEl.textContent = 'Total Value: ' + totalValue.toLocaleString();
+            }
+        };
+
+        const sortCards = (type, asc) => {
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row) return;
+            const cards = [...row.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2')];
+            cards.sort((a, b) => {
+                if (type === 'name') {
+                    const A = (a.dataset.name || '').toLowerCase();
+                    const B = (b.dataset.name || '').toLowerCase();
+                    return asc ? A.localeCompare(B) : B.localeCompare(A);
+                }
+                if (type === 'serial') {
+                    const A = parseFloat(a.dataset.serial) || Infinity;
+                    const B = parseFloat(b.dataset.serial) || Infinity;
+                    if (A !== B) return asc ? A - B : B - A;
+                    return Number(b.dataset.value || 0) - Number(a.dataset.value || 0);
+                }
+                const A = Number(a.dataset[type] || 0);
+                const B = Number(b.dataset[type] || 0);
+                return asc ? A - B : B - A;
+            });
+            cards.forEach(c => row.appendChild(c));
+            if (stackedMode) { unstackDupes(); stackDupes(); }
+        };
+
+        const showSerialModal = (name, entries) => {
+            document.querySelector('.grx-modal-backdrop')?.remove();
+            const backdrop = document.createElement('div');
+            backdrop.className = 'grx-modal-backdrop';
+            backdrop.innerHTML = `
+                <div class="grx-modal">
+                    <div class="grx-modal-head">
+                        <span>${name}</span>
+                        <button class="grx-modal-close">Close</button>
+                    </div>
+                    <div class="grx-modal-list">
+                        ${entries.map(e => `<div class="grx-modal-row">${e}</div>`).join('')}
+                    </div>
+                </div>`;
+            backdrop.querySelector('.grx-modal-close').onclick = () => backdrop.remove();
+            backdrop.onclick = e => { if (e.target === backdrop) backdrop.remove(); };
+            document.body.appendChild(backdrop);
+        };
+
+        const stackDupes = () => {
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row) return;
+            const groups = new Map();
+            [...row.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2')].forEach(card => {
+                const name = (card.dataset.name || '').toLowerCase();
+                if (!name) return;
+                if (!groups.has(name)) groups.set(name, []);
+                groups.get(name).push(card);
+            });
+            groups.forEach((group) => {
+                if (group.length < 2) return;
+                const keeper = group[0];
+                group.slice(1).forEach(c => c.style.setProperty('display', 'none', 'important'));
+                keeper.style.position = 'relative';
+                let badge = keeper.querySelector('.grx-dupe-badge');
+                if (!badge) { badge = document.createElement('div'); badge.className = 'grx-dupe-badge'; keeper.appendChild(badge); }
+                badge.textContent = `×${group.length}`;
+                const entries = group.map(c => {
+                    const serial = c.dataset.serial;
+                    const uaid = c.querySelector('.card-body p:nth-of-type(3)')?.textContent || '';
+                    return serial !== 'Infinity' ? `Serial #${serial}` : uaid;
+                });
+                const body = keeper.querySelector('.card-body');
+                if (body && !keeper.querySelector('.grx-serial-btn')) {
+                    const btn = document.createElement('button');
+                    btn.className = 'grx-serial-btn';
+                    btn.textContent = `View serials (${group.length})`;
+                    btn.onclick = () => showSerialModal(keeper.dataset.name, entries);
+                    body.appendChild(btn);
+                }
+            });
+        };
+
+        const unstackDupes = () => {
+            document.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2').forEach(c => {
+                c.style.display = '';
+            });
+            document.querySelectorAll('.grx-dupe-badge').forEach(b => b.remove());
+            document.querySelectorAll('.grx-serial-btn').forEach(b => b.remove());
+        };
+
+        const insertSortBar = () => {
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row || document.getElementById('grx-col-bar')) return;
+            const bar = document.createElement('div');
+            bar.id = 'grx-col-bar';
+
+            const mkBtn = (id, label, onclick) => {
+                const btn = document.createElement('button');
+                btn.id = id; btn.textContent = label;
+                btn.onclick = onclick;
+                return btn;
+            };
+
+            let valAsc = false;
+            bar.appendChild(mkBtn('grx-btn-val', 'Value ↓', () => {
+                valAsc = !valAsc;
+                document.getElementById('grx-btn-val').textContent = valAsc ? 'Value ↑' : 'Value ↓';
+                sortCards('value', valAsc);
+            }));
+
+            let rapAsc = false;
+            bar.appendChild(mkBtn('grx-btn-rap', 'RAP ↓', () => {
+                rapAsc = !rapAsc;
+                document.getElementById('grx-btn-rap').textContent = rapAsc ? 'RAP ↑' : 'RAP ↓';
+                sortCards('rap', rapAsc);
+            }));
+
+            let serAsc = true;
+            bar.appendChild(mkBtn('grx-btn-ser', 'Serial ↑', () => {
+                serAsc = !serAsc;
+                document.getElementById('grx-btn-ser').textContent = serAsc ? 'Serial ↑' : 'Serial ↓';
+                sortCards('serial', serAsc);
+            }));
+
+            bar.appendChild(mkBtn('grx-btn-az', 'A → Z', () => {
+                sortCards('name', true);
+            }));
+
+            const stackBtn = mkBtn('grx-btn-stack', 'Stack Dupes', () => {
+                stackedMode = !stackedMode;
+                if (stackedMode) { stackDupes(); stackBtn.textContent = 'Unstack'; stackBtn.classList.add('grx-active'); }
+                else { unstackDupes(); stackBtn.textContent = 'Stack Dupes'; stackBtn.classList.remove('grx-active'); }
+            });
+            bar.appendChild(stackBtn);
+
+            row.parentElement.insertBefore(bar, row);
+        };
+
+        // Wait for koromons data then run
+        getKoromonsData().then(() => {
+            const tryRun = () => {
+                const row = document.querySelector('.col-12.col-lg-9 .row');
+                if (!row || !row.querySelector('.col-6')) { setTimeout(tryRun, 300); return; }
+                processCards();
+                insertSortBar();
+            };
+            tryRun();
+            setInterval(() => { processCards(); insertSortBar(); }, 1500);
+        });
+    };
+
     const init = () => {
         injectFont();
+
+        // TradeWindow popup — inject immediately, skip auth gate to prevent
+        // other extensions from hijacking the DOM before us.
+        if (isTradeWindow()) {
+            injectFont();
+            applyMisc();
+            const earlyTW = () => {
+                if (!state.trade.myUserId) {
+                    fetchProfile().then(() => injectTradeWindow());
+                } else {
+                    injectTradeWindow();
+                }
+            };
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', earlyTW);
+            else earlyTW();
+            return; // skip auth gate and full panel for TradeWindow popup
+        }
+
         showFirstRunWelcome();
         applyLarp();
         applyFakeVerify();
@@ -4710,6 +5109,7 @@
             if (isAvatarPage()) injectAvatarTools();
             if (isCatalogItemPage()) applyCatalogOwned();
             injectFriendsButtons();
+            initCollectibles();
             setTimeout(() => notify('Welcome to Grexium!', 'success'), 800);
         };
 
