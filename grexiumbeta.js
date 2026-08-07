@@ -4,7 +4,9 @@
 // @version      1.1
 // @description  Grexium Suite — Trading, Mass Trader
 // @author       @Menwx
-// @homepage     https://github.com/Menwey/Grexium-Beta 
+// @homepage     https://github.com/Menwey/Grexium-Beta
+// @updateURL    https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexiumbeta.js
+// @downloadURL  https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexiumbeta.js
 // @match        https://www.pekora.zip/*
 // @grant        GM_setValue
 // @grant        GM_getValue
