@@ -2,11 +2,11 @@
 // @name         Grexium RAP & Value
 // @namespace    http://tampermonkey.net/
 // @version      1.0.0
-// @description  grexium jopa
+// @description  жопа
 // @author       @Menwx
 // @homepage     https://github.com/Menwey/Grexium-Beta
-// @updateURL    https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium-rapval.js
-// @downloadURL  https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium-rapval.js
+// @updateURL    https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium-rapval.user.js
+// @downloadURL  https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium-rapval.user.js
 // @match        https://www.pekora.zip/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -237,11 +237,13 @@
         }
     }
 
+    // ── TradeWindow (/Trade/TradeWindow.aspx) ─────────────────────────────────
+    // Only runs if Grexium's TradeWindow UI is NOT present (i.e. krneallinone took over)
     function runTradeWindow() {
         if (!/\/Trade\/TradeWindow/i.test(location.pathname)) return;
         if (document.getElementById('pks-tw-root') || document.getElementById('rok-trade-ui')) return;
 
-      
+        // Generic item value injection for any TradeWindow UI
         setInterval(() => {
             document.querySelectorAll('[class*="itemName-0-2-"]').forEach(nameEl => {
                 const name = (nameEl.textContent || '').trim();
