@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Grexium RAP & Value
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
-// @description  жопа
+// @version      3.3.3
+// @description  Grexium addon, rap+value shows ЖОПА!!!!! 
 // @author       @Menwx
 // @homepage     https://github.com/Menwey/Grexium-Beta
 // @updateURL    https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium-rapval.user.js
@@ -198,30 +198,41 @@
     function runCollectibles() {
         if (!location.href.includes('/internal/collectibles')) return;
 
-        let totalVal = 0;
+        let addedVal = 0;
+        let anyNew = false;
 
         document.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2').forEach(card => {
             const link = card.querySelector('a');
             if (!link) return;
             const m = link.href.match(/catalog\/(\d+)\//);
             if (!m) return;
-            if (card.querySelector('.grv-col-val')) return;
 
-            const rapEl = card.querySelector('.card-body p:nth-of-type(2)');
-            const rap = parseInt((rapEl?.textContent || '').replace(/\D/g, '')) || 0;
             const nameEl = card.querySelector('.card-body p.fw-bolder') || card.querySelector('.card-body p');
             const name = nameEl?.textContent?.trim() || '';
+            const rapEl = card.querySelector('.card-body p:nth-of-type(2)');
+            const rap = parseInt((rapEl?.textContent || '').replace(/\D/g, '')) || 0;
             const val = lookupValue(name);
             const display = (typeof val === 'number' && val > 0) ? val : rap;
-            totalVal += display;
 
-            const p = document.createElement('p');
-            p.className = 'grv-col-val mb-0';
-            p.style.cssText = 'color:#0084dd;font-weight:700;font-size:13px;display:flex;align-items:center;gap:4px;margin-top:4px;';
-            p.innerHTML = `${ROLIMONS_SVG}<span>${display.toLocaleString()}</span>`;
-            const body = card.querySelector('.card-body') || card;
-            body.appendChild(p);
+            // Store value on card so we can sum all cards later
+            card.dataset.grvVal = display;
+
+            if (!card.querySelector('.grv-col-val')) {
+                anyNew = true;
+                const p = document.createElement('p');
+                p.className = 'grv-col-val mb-0';
+                p.style.cssText = 'color:#0084dd;font-weight:700;font-size:13px;display:flex;align-items:center;gap:4px;margin-top:4px;';
+                p.innerHTML = `${ROLIMONS_SVG}<span>${display.toLocaleString()}</span>`;
+                const body = card.querySelector('.card-body') || card;
+                body.appendChild(p);
+            }
         });
+
+        // Sum ALL cards that have a stored value (not just newly added ones)
+        const allCards = document.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2[data-grv-val]');
+        if (!allCards.length) return; // no cards yet — don't touch the total
+
+        allCards.forEach(card => { addedVal += Number(card.dataset.grvVal) || 0; });
 
         // Total
         const rapEl = [...document.querySelectorAll('.fw-bolder')].find(el => /Total RAP/i.test(el.textContent));
@@ -233,7 +244,7 @@
                 el.style.cssText = 'color:#0084dd;font-weight:700;font-size:13px;margin-top:4px;';
                 rapEl.insertAdjacentElement('afterend', el);
             }
-            el.textContent = 'Total Value: ' + totalVal.toLocaleString();
+            el.textContent = 'Total Value: ' + addedVal.toLocaleString();
         }
     }
 
