@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         GrexiumL
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Grexium Suite — Trading, Mass Trader, Config System (Free)
+// @version      1.1
+// @description  Grexium Suite — Trading, Mass Trader
 // @author       @Menwx
-// @homepage     https://github.com/Menwey/hexium-crack
+// @homepage     https://github.com/Menwey/Grexium-Beta 
+// @updateURL    https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium.js
+// @downloadURL  https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium.js
 // @match        https://www.pekora.zip/*
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -21,13 +23,14 @@
     'use strict';
 
     if (typeof GM_xmlhttpRequest !== 'function') {
-        console.warn('[Grexium] Not running in a Tampermonkey context — aborting.');
+        console.warn('[Grexium] Not running in a Tampermonkey context — aborting.'); // абортики убийство!!!! а так бортики вкусные
         return;
     }
 
     const AUTH_SESSION_KEY   = 'pks_auth_pekora_v1';
     const PANEL_HIDDEN_KEY   = 'pks_panel_hidden';
     const FIRST_RUN_KEY      = 'grexium_first_run_v1';
+    const RAPVAL_PROMPT_KEY  = 'grexium_rapval_prompted_v1';
 
    
     const GREXIUM_WORKER_URL = 'https://grexium-worker.menwey.workers.dev';  // dont change it or HEX dont will work!!!!! ы
@@ -662,6 +665,17 @@
                     border-radius: 12px !important;
                     box-shadow: 0 8px 32px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.15) !important;
                 }
+                /* Sidebar nav card — strip glass so backdrop-filter doesn't break its stacking context */
+                [class*="card-0-2-"]:has(a[href="/home"]),
+                [class*="card-0-2-"]:has(a[href="/groups"]),
+                [class*="card-0-2-"]:has(a[href*="/friends"]),
+                [class*="card-0-2-"]:has([class*="link-0-2-"]) {
+                    background: unset !important;
+                    backdrop-filter: none !important;
+                    -webkit-backdrop-filter: none !important;
+                    border: unset !important;
+                    box-shadow: unset !important;
+                }
                 .avatarWrapper-0-2-191,
                 .avatarContainer-0-2-189,
                 .image-0-2-193,
@@ -676,9 +690,6 @@
                     backdrop-filter: blur(12px) !important;
                     -webkit-backdrop-filter: blur(12px) !important;
                 }
-                /* backdrop-filter makes each card its own stacking context, which
-                   buries the Past Usernames popover under the next glass frame.
-                   Lift the hovered card so its popover paints above its siblings. */
                 .card:hover,
                 [class*="card-0-2-"]:hover:not([class*="dropdown"]),
                 [class*="cardBody-0-2-"]:hover {
@@ -2042,13 +2053,63 @@
                     <div class="pks-tw-robux-input">${COIN(17)}<input id="pks-tw-their-robux" type="number" min="0" placeholder="Plus Robux amount"></div>
                     <div class="pks-tw-total"><span class="pks-tw-total-lbl">Total Value:</span><span id="pks-tw-their-total" class="pks-tw-total-val">${COIN(17)}0</span></div>
                     ${tradeSessionId ? `<div style="background:rgba(240,165,0,0.1);border:1px solid rgba(240,165,0,0.25);color:#f0a500;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;margin-top:16px;text-align:center;">Countering Trade #${tradeSessionId}</div>` : ''}
-                    <button id="pks-tw-send-btn" class="pks-tw-make">${tradeSessionId ? 'Send Counter' : 'Make Offer'}</button>
+                    <!-- Value display toggle -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;margin-bottom:4px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#9a9a9a;user-select:none;">
+                            <input type="checkbox" id="pks-tw-show-val" checked
+                                style="width:34px;height:18px;appearance:none;background:#444;border-radius:9px;position:relative;cursor:pointer;transition:background .15s;flex:none;">
+                            <span>Show Value/RAP</span>
+                        </label>
+                        <div style="display:flex;gap:4px;">
+                            <button id="pks-tw-metric-val" style="all:unset;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:#3fcf6a22;color:#3fcf6a;border:1px solid #3fcf6a44;">Value</button>
+                            <button id="pks-tw-metric-rap" style="all:unset;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#555;border:1px solid #333;">RAP</button>
+                        </div>
+                    </div>
+                    <style>
+                        #pks-tw-show-val::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .15s;}
+                        #pks-tw-show-val:checked{background:#3fcf6a;}
+                        #pks-tw-show-val:checked::after{left:18px;}
+                    </style>
+                    <button id="pks-tw-send-btn" class="pks-tw-make" style="margin-top:14px;">${tradeSessionId ? 'Send Counter' : 'Make Offer'}</button>
                     <div id="pks-tw-status" style="text-align:center;font-size:13px;margin-top:12px;min-height:16px;color:#888;"></div>
                 </div>
             </div>
         </div>`;
 
         document.body.appendChild(root);
+
+        // ── Value/RAP toggle and metric switcher ─────────────────────────────
+        let twShowVal = true;
+        let twMetric = 'value'; // 'value' | 'rap'
+
+        const twApplyValToggle = () => {
+            const pillsEl = document.getElementById('pks-tw-pills');
+            const divEl   = document.getElementById('pks-tw-divider-line');
+            if (!pillsEl) return;
+            if (twShowVal && (pillsEl.innerHTML !== '')) {
+                pillsEl.style.display = '';
+                if (divEl) divEl.style.display = 'none';
+            } else {
+                pillsEl.style.display = 'none';
+                if (divEl) divEl.style.display = '';
+            }
+        };
+
+        const twSetMetric = (m) => {
+            twMetric = m;
+            const vBtn = document.getElementById('pks-tw-metric-val');
+            const rBtn = document.getElementById('pks-tw-metric-rap');
+            if (vBtn) { vBtn.style.background = m === 'value' ? '#3fcf6a22' : 'transparent'; vBtn.style.color = m === 'value' ? '#3fcf6a' : '#555'; vBtn.style.borderColor = m === 'value' ? '#3fcf6a44' : '#333'; }
+            if (rBtn) { rBtn.style.background = m === 'rap' ? '#38bdf822' : 'transparent'; rBtn.style.color = m === 'rap' ? '#38bdf8' : '#555'; rBtn.style.borderColor = m === 'rap' ? '#38bdf844' : '#333'; }
+            updateTotals();
+        };
+
+        document.getElementById('pks-tw-show-val')?.addEventListener('change', (e) => {
+            twShowVal = e.target.checked;
+            twApplyValToggle();
+        });
+        document.getElementById('pks-tw-metric-val')?.addEventListener('click', () => twSetMetric('value'));
+        document.getElementById('pks-tw-metric-rap')?.addEventListener('click', () => twSetMetric('rap'));
 
         const getEffVal = (item) => getKolVal(item.assetId) || item.recentAveragePrice || 0;
         const getEffRap = (item) => getKolRap(item.assetId) || item.recentAveragePrice || 0;
@@ -2088,9 +2149,14 @@
             const dividerEl = document.getElementById('pks-tw-divider-line');
             if (pillsEl) {
                 const has = twMySelected.length || twTheirSelected.length || myRobux || theirRobux;
-                if (has) {
-                    pillsEl.innerHTML = twPill('RAP', myItemsRap + myAfterFee, theirItemsRap + theirRobux)
-                        + twPill('Value', myItemsVal + myAfterFee, theirItemsVal + theirRobux);
+                if (has && twShowVal) {
+                    // show the metric the user picked
+                    if (twMetric === 'rap') {
+                        pillsEl.innerHTML = twPill('RAP', myItemsRap + myAfterFee, theirItemsRap + theirRobux);
+                    } else {
+                        pillsEl.innerHTML = twPill('RAP', myItemsRap + myAfterFee, theirItemsRap + theirRobux)
+                            + twPill('Value', myItemsVal + myAfterFee, theirItemsVal + theirRobux);
+                    }
                     pillsEl.style.display = '';
                     if (dividerEl) dividerEl.style.display = 'none';
                 } else {
@@ -2582,7 +2648,8 @@
                 theirRap: sum(theirOffer.userAssets, rapOf) + theirRobux,
             };
         };
-        const tradeMetric = () => (cfg.tradesMetric === 'rap' ? 'rap' : 'value');
+        let trOverlayMetric = 'value'; // controlled by RAP/Value buttons in the overlay
+        const tradeMetric = () => trOverlayMetric || (cfg.tradesMetric === 'rap' ? 'rap' : 'value');
         const gainPill = (label, mine, theirs) => {
             const diff = theirs - mine;
             const pct  = mine > 0 ? Math.round((diff / mine) * 100) : (theirs > 0 ? 100 : 0);
@@ -2693,7 +2760,13 @@
                         </select>
                     </div>
                     <a class="pks-tr-help" href="https://pekora.zip/help" target="_blank" rel="noopener">How do I trade?</a>
-                    <label class="pks-tr-dispval-toggle"><input type="checkbox" id="pks-tr-dispval" checked><span>Display Value</span></label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <label class="pks-tr-dispval-toggle" style="margin-bottom:0;"><input type="checkbox" id="pks-tr-dispval" checked><span>Display Value</span></label>
+                        <div style="display:flex;gap:4px;">
+                            <button id="pks-tr-metric-val" style="all:unset;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;background:#3fcf6a22;color:#3fcf6a;border:1px solid #3fcf6a44;">Value</button>
+                            <button id="pks-tr-metric-rap" style="all:unset;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:#555;border:1px solid #333;">RAP</button>
+                        </div>
+                    </div>
                     <div class="pks-tr-list" id="pks-tr-list"><div class="pks-tr-empty">Loading\u2026</div></div>
                 </div>
                 <div id="pks-tr-detail"><div class="pks-tr-empty">Select a trade to view details.</div></div>
@@ -2905,6 +2978,19 @@
         typeEl.addEventListener('change', () => loadList(typeEl.value));
 
         const dispValEl = overlay.querySelector('#pks-tr-dispval');
+        const setTradeMetric = (m) => {
+            trOverlayMetric = m;
+            const vBtn = overlay.querySelector('#pks-tr-metric-val');
+            const rBtn = overlay.querySelector('#pks-tr-metric-rap');
+            if (vBtn) { vBtn.style.background = m === 'value' ? '#3fcf6a22' : 'transparent'; vBtn.style.color = m === 'value' ? '#3fcf6a' : '#555'; vBtn.style.borderColor = m === 'value' ? '#3fcf6a44' : '#333'; }
+            if (rBtn) { rBtn.style.background = m === 'rap' ? '#38bdf822' : 'transparent'; rBtn.style.color = m === 'rap' ? '#38bdf8' : '#555'; rBtn.style.borderColor = m === 'rap' ? '#38bdf844' : '#333'; }
+            // repaint all row indicators with new metric
+            if (_tradesRepaint) _tradesRepaint();
+        };
+
+        overlay.querySelector('#pks-tr-metric-val')?.addEventListener('click', () => setTradeMetric('value'));
+        overlay.querySelector('#pks-tr-metric-rap')?.addEventListener('click', () => setTradeMetric('rap'));
+
         const applyDispVal = () => {
             const on = dispValEl.checked;
             overlay.querySelectorAll('.pks-tr-ind').forEach(el => el.style.visibility = on ? '' : 'hidden');
@@ -4565,6 +4651,26 @@
         document.querySelectorAll('.alert-pjx.alert-warning').forEach(el => el.remove());
     };
 
+    // ── Compatibility with tradenot (tn-panel) ─────────────────────────────
+    // When tradenot's panel is open it sits at right:20px — we shift our panel
+    // left so they don't overlap.
+    const applyThirdPartyCompat = () => {
+        const panel = document.getElementById('pks-panel');
+        if (!panel) return;
+        const tnPanel = document.getElementById('tn-panel');
+        if (tnPanel && getComputedStyle(tnPanel).display !== 'none') {
+            // tradenot panel width is ~420px + 20px gap
+            panel.style.right = '450px';
+        } else {
+            panel.style.right = '18px';
+        }
+        // krneallinone: hide our trades overlay if krn's own trades UI is active
+        if (document.getElementById('tm-trades-ui') || document.querySelector('[class*="tm-injected"]')) {
+            const overlay = document.getElementById('pks-tr-overlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+    };
+
     const injectProfileTradeButton = () => {
         if (!/\/users\/\d+\/profile/i.test(location.pathname)) return;
         let tradeItem = null;
@@ -4610,16 +4716,19 @@
                 if (cfg.sidebarEnabled) applySidebarDirect();
                 injectSidebarLinks();
                 applyAgeOverride();
+                applyEmptySectionStyles();
                 ensureTradesOverlay();
                 removeNagAlerts();
                 injectProfileTradeButton();
                 applyAvatarControls();
                 applyBadges();
                 applyProfileBannerForPage();
+                applyThirdPartyCompat();
             }, 60);
         });
         state.dom.observer.observe(document.body, { childList:true, subtree:true });
         applyAgeOverride();
+        applyEmptySectionStyles();
         removeNagAlerts();
         injectProfileTradeButton();
         applyAvatarControls();
@@ -4660,6 +4769,7 @@
                 injectFriendsButtons();
                 applyBadges();
                 applyProfileBannerForPage();
+                initCollectibles();
                 if (!isTradeWindow() && cfg.effectType !== 'none' && !document.getElementById('pks-effects-canvas')) applyEffects();
             }, 400);
         };
@@ -4734,8 +4844,377 @@
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     };
 
+    // ── RAP/Value extension install prompt ────────────────────────────────────
+    const showRapValPrompt = () => {
+        try {
+            if (GM_getValue(RAPVAL_PROMPT_KEY, false)) return;
+        } catch { return; }
+
+        // Show after a short delay so it doesn't appear with the welcome popup
+        setTimeout(() => {
+            if (document.getElementById('grx-rapval-overlay')) return;
+
+            const t = getTheme();
+            const overlay = document.createElement('div');
+            overlay.id = 'grx-rapval-overlay';
+            overlay.style.cssText = 'all:initial;position:fixed;bottom:24px;left:0;right:0;display:flex;justify-content:center;z-index:2147483646;font-family:var(--pks-font),"Share Tech Mono",monospace;pointer-events:none;';
+
+            overlay.innerHTML = `
+                <style>
+                    @keyframes grx-rv-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+                    #grx-rapval-box{animation:grx-rv-in 0.4s cubic-bezier(0.22,1,0.36,1) both;pointer-events:all;}
+                    #grx-rv-install:hover{filter:brightness(1.15);transform:translateY(-1px);}
+                    #grx-rv-skip:hover{color:rgba(255,255,255,0.5)!important;}
+                </style>
+                <div id="grx-rapval-box" style="
+                    display:flex;align-items:center;gap:14px;
+                    background:rgba(10,10,18,0.97);
+                    backdrop-filter:blur(20px) saturate(160%);
+                    -webkit-backdrop-filter:blur(20px) saturate(160%);
+                    border:1px solid ${t.border};
+                    border-radius:14px;
+                    padding:16px 20px;
+                    box-shadow:0 8px 40px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.04);
+                    width:560px;
+                    max-width:calc(100vw - 48px);
+                    box-sizing:border-box;
+                ">
+                    <!-- icon -->
+                    <div style="width:42px;height:42px;flex:none;border-radius:11px;background:linear-gradient(135deg,rgba(56,189,248,0.18),rgba(56,189,248,0.05));border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+                        </svg>
+                    </div>
+                    <!-- text -->
+                    <div style="flex:1;min-width:0;">
+                        <div style="color:#fff;font-size:13px;font-weight:700;letter-spacing:0.04em;margin-bottom:4px;white-space:nowrap;">
+                            Get RAP &amp; Value display
+                        </div>
+                        <div style="color:rgba(255,255,255,0.6);font-size:11px;letter-spacing:0.03em;line-height:1.5;white-space:normal;">
+                            Install the companion extension to see win/loss indicators on trades &amp; collectibles
+                        </div>
+                    </div>
+                    <!-- buttons -->
+                    <div style="display:flex;align-items:center;gap:8px;flex:none;">
+                        <a id="grx-rv-install"
+                           href="https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexium-rapval.user.js"
+                           target="_blank" rel="noopener"
+                           style="all:unset;display:inline-flex;align-items:center;gap:6px;background:${t.accent};color:#050508;font-family:var(--pks-font),'Share Tech Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:9px 18px;border-radius:8px;cursor:pointer;transition:filter 0.15s,transform 0.15s;white-space:nowrap;">
+                            Install
+                        </a>
+                        <button id="grx-rv-skip" style="all:unset;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-family:var(--pks-font),'Share Tech Mono',monospace;font-size:14px;font-weight:700;cursor:pointer;transition:color 0.15s;border-radius:6px;background:rgba(255,255,255,0.04);">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+
+            const dismiss = (install) => {
+                if (install) {
+                    try { GM_setValue(RAPVAL_PROMPT_KEY, true); } catch {}
+                }
+                overlay.style.transition = 'opacity 0.25s';
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.remove(), 260);
+            };
+
+            document.getElementById('grx-rv-install').addEventListener('click', () => dismiss(true));
+            document.getElementById('grx-rv-skip').addEventListener('click', () => dismiss(false));
+
+            // Auto-dismiss after 15 sec
+            setTimeout(() => { if (overlay.isConnected) dismiss(false); }, 15000);
+        }, 3000);
+    };
+
+    // ── Collectibles page (/internal/collectibles) ────────────────────────────
+    const initCollectibles = () => {
+        if (!location.href.includes('/internal/collectibles')) return;
+        const userId = new URLSearchParams(location.search).get('userId');
+        if (!userId) return;
+
+        // Redirect away from paginated pages
+        const pi = new URLSearchParams(location.search).get('pageIndex');
+        if (pi && pi !== '0') { location.href = `/internal/collectibles?userId=${userId}`; return; }
+
+        const ROLIMONS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1094 1466.2" style="width:15px;height:15px;flex-shrink:0;vertical-align:middle;"><path fill="#0084dd" d="M1094 521.6 0 0v469.5l141-67.4 250 119.2L0 707.8v369.7l815.6 388.7L315 893l779-371.4z"></path></svg>`;
+
+        // Inject styles
+        if (!document.getElementById('grx-col-style')) {
+            const st = document.createElement('style');
+            st.id = 'grx-col-style';
+            st.textContent = `
+                #grx-col-bar{display:flex;align-items:center;justify-content:flex-end;gap:6px;width:100%;margin-bottom:10px;flex-wrap:wrap;}
+                #grx-col-bar button{background:transparent;color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;white-space:nowrap;}
+                #grx-col-bar button:hover{border-color:rgba(255,255,255,0.35);color:#fff;}
+                #grx-col-bar button.grx-active{border-color:#3fcf6a;color:#3fcf6a;}
+                .grx-value{color:#0084dd;font-weight:700;margin-top:4px;font-size:13px;display:flex;align-items:center;gap:4px;}
+                #grx-col-total-value{color:#0084dd;font-weight:700;margin-top:6px;font-size:14px;}
+                .grx-dupe-badge{position:absolute;top:5px;right:5px;background:#2a2a2a;color:rgba(255,255,255,0.75);font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;border:1px solid rgba(255,255,255,0.12);pointer-events:none;z-index:10;}
+                .grx-serial-btn{display:block;margin:5px auto 0;background:transparent;color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.12);border-radius:5px;font-size:10px;font-weight:600;padding:2px 8px;cursor:pointer;white-space:nowrap;width:100%;}
+                .grx-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;}
+                .grx-modal{width:min(440px,95vw);max-height:70vh;overflow:auto;background:#181818;color:#fff;border:1px solid #3a3a3a;border-radius:12px;padding:16px;}
+                .grx-modal-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333;padding-bottom:10px;margin-bottom:10px;font-weight:700;font-size:14px;}
+                .grx-modal-close{background:#242c36;color:#fff;border:1px solid #4a5666;border-radius:7px;padding:5px 10px;cursor:pointer;}
+                .grx-modal-list{display:grid;gap:5px;}
+                .grx-modal-row{background:#111;border:1px solid #333;border-radius:7px;padding:7px 10px;font-size:12px;}
+            `;
+            document.head.appendChild(st);
+        }
+
+        const getVal = (assetId) => getKolVal(assetId) || 0;
+
+        const extractSerial = (name) => {
+            if (!name) return Infinity;
+            const m = name.match(/#\s*(\d+)/);
+            if (m) return parseInt(m[1], 10);
+            const tokens = (name.match(/\b(\d+)\b/g) || []).map(Number).filter(n => n > 0 && n < 100000 && !(n >= 1900 && n <= 2100));
+            return tokens.length ? Math.min(...tokens) : Infinity;
+        };
+
+        let stackedMode = false;
+
+        const processCards = () => {
+            let totalValue = 0;
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row) return;
+
+            document.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2').forEach(card => {
+                const link = card.querySelector('a');
+                if (!link) return;
+                const m = link.href.match(/catalog\/(\d+)\//);
+                if (!m) return;
+                const assetId = m[1];
+                const rap = (() => {
+                    const p = card.querySelector('.card-body p:nth-of-type(2)');
+                    if (!p) return 0;
+                    const match = p.textContent.match(/RAP:\s*([\d,]+)/i);
+                    return match ? parseInt(match[1].replace(/,/g, ''), 10) : 0;
+                })();
+                const val = getVal(parseInt(assetId)) || rap;
+                totalValue += val;
+
+                // Set data attrs for sorting
+                const nameEl = card.querySelector('.card-body p.fw-bolder') || card.querySelector('.card-body p');
+                card.dataset.value = val;
+                card.dataset.rap = rap;
+                card.dataset.name = nameEl ? nameEl.textContent.trim() : '';
+                card.dataset.serial = extractSerial(card.dataset.name);
+                card.dataset.assetId = assetId;
+
+                // Inject value line
+                if (!card.querySelector('.grx-value')) {
+                    const p = document.createElement('p');
+                    p.className = 'grx-value mb-0';
+                    p.innerHTML = `${ROLIMONS_SVG}<span>Value: ${val.toLocaleString()}</span>`;
+                    const body = card.querySelector('.card-body') || card;
+                    body.appendChild(p);
+                }
+            });
+
+            // Total value in sidebar
+            const rapEl = [...document.querySelectorAll('.fw-bolder')].find(el => /Total RAP/i.test(el.textContent));
+            if (rapEl) {
+                let valEl = document.getElementById('grx-col-total-value');
+                if (!valEl) {
+                    valEl = document.createElement('p');
+                    valEl.id = 'grx-col-total-value';
+                    rapEl.insertAdjacentElement('afterend', valEl);
+                }
+                valEl.textContent = 'Total Value: ' + totalValue.toLocaleString();
+            }
+        };
+
+        const sortCards = (type, asc) => {
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row) return;
+            const cards = [...row.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2')];
+            cards.sort((a, b) => {
+                if (type === 'name') {
+                    const A = (a.dataset.name || '').toLowerCase();
+                    const B = (b.dataset.name || '').toLowerCase();
+                    return asc ? A.localeCompare(B) : B.localeCompare(A);
+                }
+                if (type === 'serial') {
+                    const A = parseFloat(a.dataset.serial) || Infinity;
+                    const B = parseFloat(b.dataset.serial) || Infinity;
+                    if (A !== B) return asc ? A - B : B - A;
+                    return Number(b.dataset.value || 0) - Number(a.dataset.value || 0);
+                }
+                const A = Number(a.dataset[type] || 0);
+                const B = Number(b.dataset[type] || 0);
+                return asc ? A - B : B - A;
+            });
+            cards.forEach(c => row.appendChild(c));
+            if (stackedMode) { unstackDupes(); stackDupes(); }
+        };
+
+        const showSerialModal = (name, entries) => {
+            document.querySelector('.grx-modal-backdrop')?.remove();
+            const backdrop = document.createElement('div');
+            backdrop.className = 'grx-modal-backdrop';
+            backdrop.innerHTML = `
+                <div class="grx-modal">
+                    <div class="grx-modal-head">
+                        <span>${name}</span>
+                        <button class="grx-modal-close">Close</button>
+                    </div>
+                    <div class="grx-modal-list">
+                        ${entries.map(e => `<div class="grx-modal-row">${e}</div>`).join('')}
+                    </div>
+                </div>`;
+            backdrop.querySelector('.grx-modal-close').onclick = () => backdrop.remove();
+            backdrop.onclick = e => { if (e.target === backdrop) backdrop.remove(); };
+            document.body.appendChild(backdrop);
+        };
+
+        const stackDupes = () => {
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row) return;
+            const groups = new Map();
+            [...row.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2')].forEach(card => {
+                const name = (card.dataset.name || '').toLowerCase();
+                if (!name) return;
+                if (!groups.has(name)) groups.set(name, []);
+                groups.get(name).push(card);
+            });
+            groups.forEach((group) => {
+                if (group.length < 2) return;
+                const keeper = group[0];
+                group.slice(1).forEach(c => c.style.setProperty('display', 'none', 'important'));
+                keeper.style.position = 'relative';
+                let badge = keeper.querySelector('.grx-dupe-badge');
+                if (!badge) { badge = document.createElement('div'); badge.className = 'grx-dupe-badge'; keeper.appendChild(badge); }
+                badge.textContent = `×${group.length}`;
+                const entries = group.map(c => {
+                    const serial = c.dataset.serial;
+                    const uaid = c.querySelector('.card-body p:nth-of-type(3)')?.textContent || '';
+                    return serial !== 'Infinity' ? `Serial #${serial}` : uaid;
+                });
+                const body = keeper.querySelector('.card-body');
+                if (body && !keeper.querySelector('.grx-serial-btn')) {
+                    const btn = document.createElement('button');
+                    btn.className = 'grx-serial-btn';
+                    btn.textContent = `View serials (${group.length})`;
+                    btn.onclick = () => showSerialModal(keeper.dataset.name, entries);
+                    body.appendChild(btn);
+                }
+            });
+        };
+
+        const unstackDupes = () => {
+            document.querySelectorAll('.col-6.col-md-4.col-lg-2.mb-2').forEach(c => {
+                c.style.display = '';
+            });
+            document.querySelectorAll('.grx-dupe-badge').forEach(b => b.remove());
+            document.querySelectorAll('.grx-serial-btn').forEach(b => b.remove());
+        };
+
+        const insertSortBar = () => {
+            const row = document.querySelector('.col-12.col-lg-9 .row');
+            if (!row || document.getElementById('grx-col-bar')) return;
+            const bar = document.createElement('div');
+            bar.id = 'grx-col-bar';
+
+            const mkBtn = (id, label, onclick) => {
+                const btn = document.createElement('button');
+                btn.id = id; btn.textContent = label;
+                btn.onclick = onclick;
+                return btn;
+            };
+
+            let valAsc = false;
+            bar.appendChild(mkBtn('grx-btn-val', 'Value ↓', () => {
+                valAsc = !valAsc;
+                document.getElementById('grx-btn-val').textContent = valAsc ? 'Value ↑' : 'Value ↓';
+                sortCards('value', valAsc);
+            }));
+
+            let rapAsc = false;
+            bar.appendChild(mkBtn('grx-btn-rap', 'RAP ↓', () => {
+                rapAsc = !rapAsc;
+                document.getElementById('grx-btn-rap').textContent = rapAsc ? 'RAP ↑' : 'RAP ↓';
+                sortCards('rap', rapAsc);
+            }));
+
+            let serAsc = true;
+            bar.appendChild(mkBtn('grx-btn-ser', 'Serial ↑', () => {
+                serAsc = !serAsc;
+                document.getElementById('grx-btn-ser').textContent = serAsc ? 'Serial ↑' : 'Serial ↓';
+                sortCards('serial', serAsc);
+            }));
+
+            bar.appendChild(mkBtn('grx-btn-az', 'A → Z', () => {
+                sortCards('name', true);
+            }));
+
+            const stackBtn = mkBtn('grx-btn-stack', 'Stack Dupes', () => {
+                stackedMode = !stackedMode;
+                if (stackedMode) { stackDupes(); stackBtn.textContent = 'Unstack'; stackBtn.classList.add('grx-active'); }
+                else { unstackDupes(); stackBtn.textContent = 'Stack Dupes'; stackBtn.classList.remove('grx-active'); }
+            });
+            bar.appendChild(stackBtn);
+
+            row.parentElement.insertBefore(bar, row);
+        };
+
+        // Wait for koromons data then run
+        getKoromonsData().then(() => {
+            const tryRun = () => {
+                const row = document.querySelector('.col-12.col-lg-9 .row');
+                if (!row || !row.querySelector('.col-6')) { setTimeout(tryRun, 300); return; }
+                processCards();
+                insertSortBar();
+            };
+            tryRun();
+            setInterval(() => { processCards(); insertSortBar(); }, 1500);
+        });
+    };
+
     const init = () => {
         injectFont();
+
+        // TradeWindow popup — inject immediately, skip auth gate.
+        // Wait briefly to see if krneallinone (which also handles TradeWindow)
+        // is installed — if so, let it take over and we only inject our CSS/watermark.
+        if (isTradeWindow()) {
+            injectFont();
+            applyMisc();
+
+            // Check after a short delay — krneallinone runs at document-idle (later than us)
+            const handleTW = () => {
+                // krneallinone sets rok-trade-ui or its ext manager key exists
+                const krnPresent = !!document.getElementById('rok-trade-ui') ||
+                                   localStorage.getItem('korone_ext_3') !== null;
+                if (krnPresent) {
+                    // Let krneallinone handle the UI, we only add watermark
+                    buildWatermark();
+                    return;
+                }
+                // krneallinone not present — use our TradeWindow
+                if (!state.trade.myUserId) {
+                    fetchProfile().then(() => injectTradeWindow());
+                } else {
+                    injectTradeWindow();
+                }
+            };
+
+            // Give krneallinone up to 800ms to start
+            setTimeout(handleTW, 800);
+            return;
+        }
+
+        // Collectibles page — run early without auth gate
+        if (location.href.includes('/internal/collectibles')) {
+            injectFont();
+            getKoromonsData(); // preload values
+            const earlyCol = () => initCollectibles();
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', earlyCol);
+            else earlyCol();
+            // still continue to full init for panel etc.
+        }
+
         showFirstRunWelcome();
         applyLarp();
         applyFakeVerify();
@@ -4757,7 +5236,9 @@
             if (isAvatarPage()) injectAvatarTools();
             if (isCatalogItemPage()) applyCatalogOwned();
             injectFriendsButtons();
+            initCollectibles();
             setTimeout(() => notify('Welcome to Grexium!', 'success'), 800);
+            showRapValPrompt();
         };
 
         showAuthGate().then((authInfo) => {
