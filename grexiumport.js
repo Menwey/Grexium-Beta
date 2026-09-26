@@ -13,7 +13,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      pekora.pro
-// @connect      www.koromons.net
+// @connect      pekoramons.lol
 // @run-at       document-end
 // ==/UserScript==
 
@@ -51,7 +51,7 @@
         if (_koromonsCache) { resolve(_koromonsCache); return; }
         if (_koromonsLoading) { _koromonsWaiters.push(resolve); return; }
         _koromonsLoading = true;
-        fetch('https://www.koromons.net/items.json', { headers: { accept: 'application/json' } })
+        fetch('https://pekoramons.lol/items.json', { headers: { accept: 'application/json' } })
             .then(r => r.json())
             .then(data => {
                 const map = {};
