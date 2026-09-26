@@ -1,4 +1,4 @@
-# Grexium
+# Grexium (korone loader)
 
 ```js
 // ==UserScript==
