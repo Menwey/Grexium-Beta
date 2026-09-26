@@ -1,4 +1,4 @@
-# Grexium (korone loader)
+# Grexium (korone loader), pekora.pro loader are in Loader.js
 
 ```js
 // ==UserScript==
