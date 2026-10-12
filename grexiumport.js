@@ -4845,6 +4845,13 @@
     };
 
     // ── RAP/Value extension install prompt ────────────────────────────────────
+    // STATUS: DISABLED (the call in run() is commented out). The code is kept for reference.
+    // What it does: shows a bottom banner 3 sec after load, "Get RAP & Value display",
+    //   with an Install link and a close button. Auto-hides after 15 sec.
+    // Storage: RAPVAL_PROMPT_KEY ('grexium_rapval_prompted_v1') is saved via GM_setValue
+    //   only after the user clicks Install, so the popup is not shown again.
+    // To re-enable: uncomment `showRapValPrompt();` at the end of run() (search "DISABLED: RAP/Value").
+    // NOTE: the Install link currently points to a placeholder (doesnt-finished-yet.txt).
     const showRapValPrompt = () => {
         try {
             if (GM_getValue(RAPVAL_PROMPT_KEY, false)) return;
@@ -5238,7 +5245,8 @@
             injectFriendsButtons();
             initCollectibles();
             setTimeout(() => notify('Welcome to Grexium!', 'success'), 800);
-            showRapValPrompt();
+            // DISABLED: RAP/Value install popup. To re-enable, uncomment the line below.
+            // showRapValPrompt();
         };
 
         showAuthGate().then((authInfo) => {
