@@ -1763,9 +1763,9 @@
         const setStatus = (msg, color = '#555') => { if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color; } };
 
         if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-        setStatus('Applying locally\u2026');
+        setStatus('Applying\u2026');
 
-        // Apply locally immediately
+        // Apply immediately
         cfg.profileBannerEnabled = true;
         saveCfg(cfg);
         const en = document.getElementById('cfg-profileBannerEnabled');
@@ -1793,7 +1793,7 @@
                 setStatus('\u26a0 Could not reach server — saved locally only', '#f0a500');
             }
         } else {
-            setStatus('\u2713 Applied locally (configure GREXIUM_WORKER_URL to share)', '#00e87a');
+            setStatus('\u2713 Applied', '#00e87a');
             notify('Banner applied!', 'success');
         }
 
