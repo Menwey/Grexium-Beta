@@ -1,0 +1,9 @@
+{
+  "_comment": "123.",
+  "_valid_badges": ["owner", "developer", "admin", "staff", "featured", "beta", "hexium"],
+  "1052": ["owner", "developer", "hexium"],
+  "448": ["featured"],
+  "2703": ["featured"],
+  "187": ["featured"],
+  "98": ["beta"]
+}
