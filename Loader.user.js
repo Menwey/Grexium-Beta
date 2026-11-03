@@ -1,35 +1,81 @@
 // ==UserScript==
-// @name         Grexium
+// @name         Grexium Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Grexium loader
+// @version      2.1
+// @description  Loads the latest Grexium build from GitHub
 // @author       @Menwx
 // @match        https://pekora.pro/*
+// @exclude      https://pekora.pro/admin*
+// @exclude      https://pekora.pro/Admin*
+// @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        GM_deleteValue
-// @grant        GM_listValues
-// @grant        GM_xmlhttpRequest
 // @connect      raw.githubusercontent.com
-// @run-at       document-end
+// @run-at       document-start
+// @updateURL    https://raw.githubusercontent.com/Menwey/Grexium-Beta/main/Loader.user.js
+// @downloadURL  https://raw.githubusercontent.com/Menwey/Grexium-Beta/main/Loader.user.js
 // ==/UserScript==
-
-// if you lost loader, you can use this loader
 
 (function () {
   'use strict';
-  GM_xmlhttpRequest({
-    method: 'GET',
-    url: 'https://raw.githubusercontent.com/Menwey/Grexium-Beta/refs/heads/main/grexiumport.js?t=' + Date.now(),
-    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-    onload(res) {
-      if (res.status < 200 || res.status >= 300) {
-        console.error('[Grexium] Failed to fetch source:', res.status);
-        return;
-      }
-      try { eval(res.responseText); }
-      catch (e) { console.error('[Grexium] Error running source:', e); }
-    },
-    onerror(err) { console.error('[Grexium] Network error loading source:', err); },
+
+  const REPO = 'https://raw.githubusercontent.com/Menwey/Grexium-Beta/main/';
+  const CORE = 'grexiumcore.js';
+  const CACHE_KEY = 'grexium_core_cache';
+  const CACHE_VER_KEY = 'grexium_core_version';
+
+  if (/^\/admin/i.test(location.pathname)) return;
+
+  const log = (...a) => console.log('[Grexium]', ...a);
+
+  const getText = (url) => new Promise((resolve, reject) => {
+    GM_xmlhttpRequest({
+      method: 'GET',
+      url: url + '?t=' + Date.now(),
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+      timeout: 15000,
+      onload: (r) => (r.status >= 200 && r.status < 300 && r.responseText)
+        ? resolve(r.responseText)
+        : reject(new Error('HTTP ' + r.status)),
+      onerror: () => reject(new Error('network error')),
+      ontimeout: () => reject(new Error('timeout')),
+    });
   });
+
+  const versionOf = (src) => {
+    const m = src.match(/@version\s+([^\s]+)/);
+    return m ? m[1] : 'unknown';
+  };
+
+  const run = (src) => { eval(src); };
+
+  const start = async () => {
+    const cached = GM_getValue(CACHE_KEY, '');
+    if (cached) {
+      try { run(cached); log('started cached v' + GM_getValue(CACHE_VER_KEY, '?')); }
+      catch (e) { log('cache run error:', e); }
+    }
+
+    try {
+      const src = await getText(REPO + CORE);
+      if (src.length < 1000) throw new Error('core file too short');
+      const ver = versionOf(src);
+      const prev = GM_getValue(CACHE_VER_KEY, '');
+      GM_setValue(CACHE_KEY, src);
+      GM_setValue(CACHE_VER_KEY, ver);
+
+      if (!cached) {
+        run(src);
+        log('started v' + ver);
+      } else if (prev !== ver) {
+        log('updated v' + prev + ' -> v' + ver + ', reload the page to apply');
+      } else {
+        log('up to date v' + ver);
+      }
+    } catch (e) {
+      log('could not load core:', e.message);
+    }
+  };
+
+  start();
 })();
